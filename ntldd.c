@@ -138,9 +138,9 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs,
     if (error == ERROR_FILE_NOT_FOUND)
     {
       if (!first)
-        printf (" => not found");
+        printf (" => not found\n");
       else
-        fprintf (stderr, "%s: not found", name);
+        fprintf (stderr, "%s: not found\n", name);
     }
     
     if (!success)
