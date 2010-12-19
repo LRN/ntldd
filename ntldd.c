@@ -32,223 +32,7 @@ MSDN Magazine articles
 #include <string.h>
 #include <stdio.h>
 
-#define NTLDD_VERSION_MAJOR 0
-#define NTLDD_VERSION_MINOR 1
-
-/* MinGW doesn't have ImgDelayDescr defined at the moment */
-typedef struct _ImgDelayDescr ImgDelayDescr;
-
-struct _ImgDelayDescr
-{
-  DWORD grAttrs;
-  DWORD rvaDLLName;
-  DWORD rvaHmod;
-  DWORD rvaIAT;
-  DWORD rvaINT;
-  DWORD rvaBoundIAT;
-  DWORD rvaUnloadIAT;
-  DWORD dwTimeStamp;
-};
-
-typedef struct _soff_entry soff_entry;
-
-struct _soff_entry
-{
-  DWORD start;
-  DWORD end;
-  void *off;
-};
-
-void *MapPointer (soff_entry *soffs, int soffs_len, DWORD in_ptr)
-{
-  int i;
-  for (i = 0; i < soffs_len; i++)
-    if (soffs[i].start <= in_ptr && soffs[i].end >= in_ptr)
-      return soffs[i].off + in_ptr;
-  return NULL;
-}
-
-int FindSectionID (IMAGE_OPTIONAL_HEADER *oh, DWORD address, DWORD size)
-{
-  int i;
-  for (i = 0; i < oh->NumberOfRvaAndSizes; i++)
-  {
-    if (oh->DataDirectory[i].VirtualAddress == address &&
-        oh->DataDirectory[i].Size == size)
-      return i;
-  }
-  return -1;
-}
-
-void ResizeResolved (char ***resolved, int *resolved_len, int *resolved_size)
-{
-  int i;
-  int new_size = (*resolved_size) > 0 ? (*resolved_size) * 2 : 64;
-  char **new_resolved = malloc (new_size * sizeof (char *));
-  for (i = 0; i < *resolved_len; i++)
-    new_resolved[i] = (*resolved)[i];
-  free (*resolved);
-  *resolved = new_resolved;
-  *resolved_size = new_size;
-}
-
-void AddResolvedModule (char ***resolved, int *resolved_len,
-    int *resolved_size, const char *name)
-{
-  if (*resolved_len >= *resolved_size)
-    ResizeResolved (resolved, resolved_len, resolved_size);
-  (*resolved)[(*resolved_len)++] = strdup (name);
-}
-
-int FindResolvedModule (char ***resolved, int *resolved_len, const char *name)
-{
-  int i;
-  for (i = 0; i < *resolved_len; i++)
-    if ((*resolved)[i] && strcmp ((*resolved)[i], name) == 0)
-      return 1;
-  return 0;
-}
-
-int PrintImageLinks (int first, int verbose, int unused, int datarelocs,
-    int functionrelocs, char *name, int recursive, int current_depth,
-    char ***resolved, int *resolved_len, int *resolved_size)
-{
-  LOADED_IMAGE loaded_image;
-  LOADED_IMAGE *img;
-  BOOL success;
-
-  int i;
-  int soffs_len;
-
-  IMAGE_DATA_DIRECTORY *idata;
-  const char *dllname = NULL;
-  IMAGE_IMPORT_DESCRIPTOR *iid;
-  ImgDelayDescr *idd;
-
-  success = MapAndLoad (name, NULL, &loaded_image, FALSE, TRUE);
-
-  if (!success)
-  {
-    DWORD error = GetLastError ();
-    if (error == ERROR_FILE_NOT_FOUND)
-    {
-      success = MapAndLoad (name, NULL, &loaded_image, TRUE, TRUE);
-      error = GetLastError ();
-    }
-    if (error == ERROR_FILE_NOT_FOUND)
-    {
-      if (!first)
-        printf (" => not found\n");
-      else
-        fprintf (stderr, "%s: not found\n", name);
-    }
-    
-    if (!success)
-      return -1;
-  }
-
-  if (!first)
-  {
-    if (strcmp (name, loaded_image.ModuleName) == 0)
-      printf (" (0x%p)\n", loaded_image.MappedAddress);
-    else
-      printf (" => %s (0x%p)\n", loaded_image.ModuleName,
-          loaded_image.MappedAddress);
-  }
-
-  if (first || recursive)
-  {
-    img = &loaded_image;
-    soff_entry *soffs;
-    soffs_len = img->NumberOfSections;
-    soffs = (soff_entry *) malloc (sizeof(soff_entry) * (soffs_len + 1));
-    for (i = 0; i < img->NumberOfSections; i++)
-    {
-      soffs[i].start = img->Sections[i].VirtualAddress;
-      soffs[i].end = soffs[i].start + img->Sections[i].Misc.VirtualSize;
-      soffs[i].off = img->MappedAddress + img->Sections[i].PointerToRawData - 
-          img->Sections[i].VirtualAddress;
-    }
-    for (i = img->NumberOfSections; i < img->NumberOfSections + 1; i++)
-    {
-      soffs[i].start = 0;
-      soffs[i].end = 0;
-      soffs[i].off = 0;
-    }
-  
-    idata = &(img->FileHeader->OptionalHeader.\
-        DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]);
-    if (idata->Size > 0 && idata->VirtualAddress != 0)
-    {
-      iid = (IMAGE_IMPORT_DESCRIPTOR *) MapPointer (soffs, soffs_len,
-          idata->VirtualAddress);
-      if (iid)
-      {
-        for (i = 0; iid[i].Characteristics || iid[i].TimeDateStamp ||
-            iid[i].ForwarderChain || iid[i].Name || iid[i].FirstThunk; i++)
-        {
-          dllname = (char *) MapPointer (soffs, soffs_len, iid[i].Name);
-          if (dllname)
-          {
-            int found = FindResolvedModule (resolved, resolved_len, dllname);
-            if ((first || recursive) && !found)
-              printf ("\t%*s%s", current_depth, current_depth > 0 ? " " : "",
-                  dllname);
-            if ((first || recursive) && !found)
-            {
-              AddResolvedModule (resolved, resolved_len, resolved_size,
-                  dllname);
-              if (PrintImageLinks (0, verbose, unused, datarelocs,
-                  functionrelocs, (char *) dllname, recursive,
-                  current_depth + 1, resolved, resolved_len,
-                  resolved_size) < 0)
-                printf ("\n");
-            }
-          }
-        }
-      }
-    }
-    
-    idata = &(img->FileHeader->OptionalHeader.\
-        DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT]);
-    if (idata->Size > 0 && idata->VirtualAddress != 0)
-    {
-      idd = (ImgDelayDescr *) MapPointer (soffs, soffs_len,
-          idata->VirtualAddress);
-      if (idd)
-      {
-        for (i = 0; idd[i].grAttrs || idd[i].rvaDLLName ||
-            idd[i].rvaHmod || idd[i].rvaIAT || idd[i].rvaINT ||
-            idd[i].rvaBoundIAT || idd[i].rvaUnloadIAT ||
-            idd[i].dwTimeStamp; i++)
-        {
-          dllname = (char *) MapPointer (soffs, soffs_len, idd[i].rvaDLLName);
-          if (dllname)
-          {
-            int found = FindResolvedModule (resolved, resolved_len, dllname);
-            if ((first || recursive) && !found)
-              printf ("\t%*s%s", current_depth, current_depth > 0 ? " " : "",
-                  dllname);
-            if ((first || recursive) && !found)
-            {
-              AddResolvedModule (resolved, resolved_len, resolved_size,
-                  dllname);
-              if (PrintImageLinks (0, verbose, unused, datarelocs,
-                  functionrelocs, (char *) dllname, recursive,
-                  current_depth + 1, resolved, resolved_len,
-                  resolved_size) < 0)
-                printf ("\n");
-            }
-          }
-        }
-      }
-    }
-    free (soffs);
-  }
-
-  UnMapAndLoad (&loaded_image);
-  return 0;
-}
+#include "libntldd.h"
 
 void printversion()
 {
@@ -275,6 +59,43 @@ OPTIONS:\n\
 Use -- option to pass filenames that start with `--' or `-'\n\
 For bug reporting instructions, please see:\n\
 <somewhere>.", argv0);
+}
+
+int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int depth)
+{
+  int i;
+  self->flags |= DEPTREE_VISITED;
+
+  if (self->flags & DEPTREE_UNRESOLVED)  
+  {
+    if (!first)
+      printf (" => not found\n");
+    else
+      fprintf (stderr, "%s: not found\n", self->module);
+    return -1;
+  }
+
+  if (!first)
+  {
+    if (stricmp (self->module, self->resolved_module) == 0)
+      printf (" (0x%p)\n", self->mapped_address);
+    else
+      printf (" => %s (0x%p)\n", self->resolved_module,
+          self->mapped_address);
+  }
+
+  if (first || recursive)
+  {
+    for (i = 0; i < self->childs_len; i++)
+    {
+      if (!(self->childs[i]->flags & DEPTREE_VISITED))
+      {
+        printf ("\t%*s%s", depth, depth > 0 ? " " : "", self->childs[i]->module);
+        PrintImageLinks (0, verbose, unused, datarelocs, functionrelocs, self->childs[i], recursive, depth + 1);
+      }
+    }
+  }
+  return 0;
 }
 
 int main (int argc, char **argv)
@@ -332,16 +153,23 @@ Try `ntldd --help' for more information\n", argv[i]);
   }
   if (!skip && files_start > 0)
   {
-    char **resolved = NULL;
-    int resolved_len = 0;
-    int resolved_size = 0;
     int multiple = files_start + 1 < argc;
+    struct DepTreeElement root;
+    memset (&root, 0, sizeof (struct DepTreeElement));
+    for (i = files_start; i < argc; i++)
+    {
+      struct DepTreeElement *child = (struct DepTreeElement *) malloc (sizeof (struct DepTreeElement));
+      memset (child, 0, sizeof (struct DepTreeElement));
+      child->module = strdup (argv[i]);
+      AddDep (&root, child);
+      BuildDepTree (datarelocs, functionrelocs, argv[i], recursive, &root, child, 0);
+    }
+    ClearDepStatus (&root, DEPTREE_VISITED | DEPTREE_PROCESSED);
     for (i = files_start; i < argc; i++)
     {
       if (multiple)
         printf ("%s:\n", argv[i]);
-      PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs,
-         argv[i], recursive, 0, &resolved, &resolved_len, &resolved_size);
+      PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, 0);
     }
   }
   return 0;
