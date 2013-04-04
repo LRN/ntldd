@@ -289,8 +289,6 @@ int BuildDepTree (int datarelocs, int functionrelocs, char *name, int recursive,
           self->export_module = strdup (export_module);
       }
     }
-    if (stricmp (name, "API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL") == 0)
-      printf ("e:\\windows\\syswow64\\API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL\n");
     if (ied && ied->NumberOfFunctions > 0)
     {
       DWORD *addrs, *names;
