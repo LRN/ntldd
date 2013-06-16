@@ -54,6 +54,8 @@ OPTIONS:\n\
 -r, --function-relocs Does not work\n\
 -R, --recursive       Lists dependencies recursively,\n\
                         eliminating duplicates\n\
+--list-exports        Lists exports of a module (single file only)\n\
+--list-imports        Lists imports of modules\n\
 --help                Displays this message\n\
 \n\
 Use -- option to pass filenames that start with `--' or `-'\n\
@@ -61,9 +63,10 @@ For bug reporting instructions, please see:\n\
 <somewhere>.", argv0);
 }
 
-int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int list_exports, int depth)
+int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int list_exports, int list_imports, int depth)
 {
   int i;
+  int unresolved = 0;
   self->flags |= DEPTREE_VISITED;
 
   if (list_exports)
@@ -85,10 +88,10 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
       printf (" => not found\n");
     else
       fprintf (stderr, "%s: not found\n", self->module);
-    return -1;
+    unresolved = 1;
   }
 
-  if (!first)
+  if (!unresolved && !first)
   {
     if (stricmp (self->module, self->resolved_module) == 0)
       printf (" (0x%p)\n", self->mapped_address);
@@ -97,6 +100,23 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
           self->mapped_address);
   }
 
+  if (list_imports)
+  {
+    for (i = 0; i < self->imports_len; i++)
+    {
+      struct ImportTableItem *item = &self->imports[i];
+
+      printf ("\t%*s%p %p %3d %s %s %s\n", depth, depth > 0 ? " " : "", \
+          item->orig_address, item->address, item->ordinal, \
+          item->name ? item->name : "<NULL>",
+          item->mapped ? "" : "<UNRESOLVED>",
+          item->dll == NULL ? "<MODULE MISSING>" : item->dll->module ? item->dll->module : "<NULL>");
+    }
+  }
+
+  if (unresolved)
+    return -1;
+
   if (first || recursive)
   {
     for (i = 0; i < self->childs_len; i++)
@@ -104,7 +124,7 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
       if (!(self->childs[i]->flags & DEPTREE_VISITED))
       {
         printf ("\t%*s%s", depth, depth > 0 ? " " : "", self->childs[i]->module);
-        PrintImageLinks (0, verbose, unused, datarelocs, functionrelocs, self->childs[i], recursive, list_exports, depth + 1);
+        PrintImageLinks (0, verbose, unused, datarelocs, functionrelocs, self->childs[i], recursive, list_exports, list_imports, depth + 1);
       }
     }
   }
@@ -122,6 +142,7 @@ int main (int argc, char **argv)
   int files = 0;
   int recursive = 0;
   int list_exports = 0;
+  int list_imports = 0;
   int files_start = -1;
   for (i = 1; i < argc; i++)
   {
@@ -143,6 +164,9 @@ int main (int argc, char **argv)
     else if (strcmp (argv[i], "-e") == 0 || 
         strcmp (argv[i], "--list-exports") == 0)
       list_exports = 1;
+    else if (strcmp (argv[i], "-i") == 0 || 
+        strcmp (argv[i], "--list-imports") == 0)
+      list_imports = 1;
     else if (strcmp (argv[i], "--help") == 0)
     {
       printhelp (argv[0]);
@@ -186,7 +210,7 @@ Try `ntldd --help' for more information\n", argv[i]);
     {
       if (multiple)
         printf ("%s:\n", argv[i]);
-      PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, 0);
+      PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, list_imports, 0);
     }
   }
   return 0;

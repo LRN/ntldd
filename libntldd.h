@@ -23,7 +23,7 @@ struct ImportTableItem
   void *orig_address;
   void *address;
   char *name;
-  WORD ordinal;
+  int ordinal;
   struct DepTreeElement *dll;
   struct ExportTableItem *mapped;
 };

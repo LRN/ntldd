@@ -357,6 +357,7 @@ int BuildDepTree (int datarelocs, int functionrelocs, char *name, int recursive,
           }
           else
           {
+            imp->ordinal = -1;
             IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, oith[j].u1.Function, NULL);
             if (byname != NULL)
               imp->name = strdup ((char *) byname->Name);
