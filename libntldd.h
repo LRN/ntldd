@@ -16,6 +16,8 @@ struct ExportTableItem
   WORD ordinal;
   char *forward_str;
   struct ExportTableItem *forward;
+  int section_index;
+  DWORD address_offset;
 };
 
 struct ImportTableItem
@@ -53,6 +55,27 @@ int ClearDepStatus (struct DepTreeElement *self, uint64_t flags);
 
 void AddDep (struct DepTreeElement *parent, struct DepTreeElement *child);
 
-int BuildDepTree (int datarelocs, int functionrelocs, char *name, int recursive, struct DepTreeElement *root, struct DepTreeElement *self, int on_self);
+typedef struct SearchPaths_t
+{
+    unsigned count;
+    char** path;
+} SearchPaths;
+
+
+typedef struct BuildTreeConfig_t
+{
+    int datarelocs;
+    int functionrelocs;
+    int recursive;
+    int on_self;
+    char ***stack;
+    uint64_t *stack_len;
+    uint64_t *stack_size;
+    int machineType;
+    SearchPaths* searchPaths;
+} BuildTreeConfig;
+
+int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root, struct DepTreeElement *self);
+
 
 #endif

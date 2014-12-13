@@ -54,6 +54,7 @@ OPTIONS:\n\
 -r, --function-relocs Does not work\n\
 -R, --recursive       Lists dependencies recursively,\n\
                         eliminating duplicates\n\
+-D, --search-dir      Additional search directory\n\
 --list-exports        Lists exports of a module (single file only)\n\
 --list-imports        Lists imports of modules\n\
 --help                Displays this message\n\
@@ -65,7 +66,7 @@ For bug reporting instructions, please see:\n\
 
 int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int list_exports, int list_imports, int depth)
 {
-  int i;
+  uint64_t i;
   int unresolved = 0;
   self->flags |= DEPTREE_VISITED;
 
@@ -75,10 +76,11 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
     {
       struct ExportTableItem *item = &self->exports[i];
 
-      printf ("%*s[%u] %s (%p)%s%s\n", depth, depth > 0 ? " " : "", \
-          item->ordinal, item->name, item->address, \
+      printf ("%*s[%u] %s (0x%lx)%s%s <%d>\n", depth, depth > 0 ? " " : "", \
+          item->ordinal, item->name, item->address_offset, \
           item->forward_str ? " ->" : "", \
-          item->forward_str ? item->forward_str : "");
+          item->forward_str ? item->forward_str : "",
+          item->section_index);
     }
     return 0;
   }
@@ -144,6 +146,12 @@ int main (int argc, char **argv)
   int list_exports = 0;
   int list_imports = 0;
   int files_start = -1;
+  int files_count = 0;
+
+  SearchPaths sp;
+  memset(&sp, 0, sizeof (sp));
+  sp.path = calloc (1, sizeof (char*));
+
   for (i = 1; i < argc; i++)
   {
     if (strcmp (argv[i], "--version") == 0)
@@ -167,6 +175,31 @@ int main (int argc, char **argv)
     else if (strcmp (argv[i], "-i") == 0 || 
         strcmp (argv[i], "--list-imports") == 0)
       list_imports = 1;
+    else if ((strcmp (argv[i], "-D") == 0 || strcmp (argv[i], "--search-dir") == 0) && i < argc - 1)
+    {
+      char* add_dirs = argv[i+1];
+      if (*add_dirs == '"')
+          add_dirs++;
+      char* sep = strchr(add_dirs, ';');
+      do {
+        if (sep)
+            *sep = '\0';
+        sp.count++;
+        sp.path = (char**)realloc(sp.path, sp.count * sizeof(char*));
+        if (!sep)
+        {
+          char* p = strrchr(add_dirs, '"');
+          if (p)
+            *p = '\0';
+        }
+        sp.path[sp.count - 1] = strdup(add_dirs);
+        add_dirs = sep + 1;
+        if (!sep)
+            break;
+        sep = strchr(add_dirs, ';');
+      } while (1);
+      i++;
+    }
     else if (strcmp (argv[i], "--help") == 0)
     {
       printhelp (argv[0]);
@@ -192,8 +225,24 @@ Try `ntldd --help' for more information\n", argv[i]);
       break;
     }
   }
+
   if (!skip && files_start > 0)
   {
+    files_count = argc - files_start;
+    sp.count += files_count;
+    sp.path = realloc(sp.path, sp.count * sizeof(char*));
+    for (i = 0; i < files_count; ++i)
+    {
+      char buff[MAX_PATH] = {};
+      strcpy(buff, argv[files_start+i]);
+      char* p = strrchr(buff, '\\');
+      if (!p)
+        p = strrchr(buff, '/');
+      if (p++)
+        *p = '\0';
+
+      sp.path[sp.count - files_count + i] = strdup(buff);
+    }
     int multiple = files_start + 1 < argc;
     struct DepTreeElement root;
     memset (&root, 0, sizeof (struct DepTreeElement));
@@ -203,7 +252,21 @@ Try `ntldd --help' for more information\n", argv[i]);
       memset (child, 0, sizeof (struct DepTreeElement));
       child->module = strdup (argv[i]);
       AddDep (&root, child);
-      BuildDepTree (datarelocs, functionrelocs, argv[i], recursive, &root, child, 0);
+      char **stack = NULL;
+      uint64_t stack_len = 0;
+      uint64_t stack_size = 0;
+      BuildTreeConfig cfg;
+      memset(&cfg, 0, sizeof(cfg));
+      cfg.machineType = -1;
+      cfg.on_self = 0;
+      cfg.datarelocs = datarelocs;
+      cfg.recursive = recursive;
+      cfg.functionrelocs = functionrelocs;
+      cfg.stack = &stack;
+      cfg.stack_len = &stack_len;
+      cfg.stack_size = &stack_size;
+      cfg.searchPaths = &sp;
+      BuildDepTree (&cfg, argv[i], &root, child);
     }
     ClearDepStatus (&root, DEPTREE_VISITED | DEPTREE_PROCESSED);
     for (i = files_start; i < argc; i++)
