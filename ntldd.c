@@ -37,7 +37,7 @@ MSDN Magazine articles
 void printversion()
 {
   printf ("ntldd %d.%d\n\
-Copyright (C) 2010 LRN\n\
+Copyright (C) 2010-2015 LRN\n\
 This is free software; see the source for conditions. There is NO\n\
 warranty; not event for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
 Written by LRN.", NTLDD_VERSION_MAJOR, NTLDD_VERSION_MINOR);
