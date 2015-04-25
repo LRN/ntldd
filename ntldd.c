@@ -108,7 +108,7 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
     {
       struct ImportTableItem *item = &self->imports[i];
 
-      printf ("\t%*s%p %p %3d %s %s %s\n", depth, depth > 0 ? " " : "", \
+      printf ("\t%*s%llX %llX %3d %s %s %s\n", depth, depth > 0 ? " " : "", \
           item->orig_address, item->address, item->ordinal, \
           item->name ? item->name : "<NULL>",
           item->mapped ? "" : "<UNRESOLVED>",

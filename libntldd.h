@@ -22,8 +22,8 @@ struct ExportTableItem
 
 struct ImportTableItem
 {
-  void *orig_address;
-  void *address;
+  uint64_t orig_address;
+  uint64_t address;
   char *name;
   int ordinal;
   struct DepTreeElement *dll;

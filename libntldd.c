@@ -303,10 +303,10 @@ static void BuildDepTree32 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct DepT
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
-          imp->orig_address = (void *) oith[j].u1.Function;
+          imp->orig_address = oith[j].u1.Function;
           if (cfg->on_self)
           {
-            imp->address = (void *) ith[j].u1.Function;
+            imp->address = ith[j].u1.Function;
           }
           if (oith[j].u1.Function & (1 << (sizeof (DWORD) * 8 - 1)))
           {
@@ -351,10 +351,10 @@ static void BuildDepTree32 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct DepT
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
-          imp->orig_address = (void *) oith[j].u1.Function;
+          imp->orig_address = oith[j].u1.Function;
           if (cfg->on_self)
           {
-            imp->address = (void *) ith[j].u1.Function;
+            imp->address = ith[j].u1.Function;
           }
           if (oith[j].u1.Function & (1 << (sizeof (DWORD) * 8 - 1)))
           {
@@ -473,16 +473,16 @@ static void BuildDepTree64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct DepT
         dll = ProcessDep (cfg, soffs, soffs_len, iid[i].Name, root, self, 0);
         if (dll == NULL)
           continue;
-        ith = (IMAGE_THUNK_DATA *) MapPointer (soffs, soffs_len, iid[i].FirstThunk, NULL);
-        oith = (IMAGE_THUNK_DATA *) MapPointer (soffs, soffs_len, iid[i].OriginalFirstThunk, NULL);
+        ith = (IMAGE_THUNK_DATA64 *) MapPointer (soffs, soffs_len, iid[i].FirstThunk, NULL);
+        oith = (IMAGE_THUNK_DATA64 *) MapPointer (soffs, soffs_len, iid[i].OriginalFirstThunk, NULL);
         for (j = 0; ith[j].u1.Function != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
-          imp->orig_address = (void *) oith[j].u1.Function;
+          imp->orig_address = oith[j].u1.Function;
           if (cfg->on_self)
           {
-            imp->address = (void *) ith[j].u1.Function;
+            imp->address = ith[j].u1.Function;
           }
           if (oith[j].u1.Function & (1 << (sizeof (DWORD) * 8 - 1)))
           {
@@ -527,10 +527,10 @@ static void BuildDepTree64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct DepT
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
-          imp->orig_address = (void *) oith[j].u1.Function;
+          imp->orig_address = oith[j].u1.Function;
           if (cfg->on_self)
           {
-            imp->address = (void *) ith[j].u1.Function;
+            imp->address = ith[j].u1.Function;
           }
           if (oith[j].u1.Function & (1 << (sizeof (DWORD) * 8 - 1)))
           {
