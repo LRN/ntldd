@@ -310,28 +310,30 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           iid[i].ForwarderChain || iid[i].Name || iid[i].FirstThunk; i++)
       {
         struct DepTreeElement *dll;
+        uint64_t impaddress;
         dll = ProcessDep (cfg, soffs, soffs_len, iid[i].Name, root, self, 0);
         if (dll == NULL)
           continue;
         ith = (void *) MapPointer (soffs, soffs_len, iid[i].FirstThunk, NULL);
         oith = (void *) MapPointer (soffs, soffs_len, iid[i].OriginalFirstThunk, NULL);
-        for (j = 0; thunk_data_u1_function (ith, j, cfg) != 0; j++)
+        for (j = 0; (impaddress = thunk_data_u1_function (ith, j, cfg)) != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
-          imp->orig_address = thunk_data_u1_function (oith, j, cfg);
+          imp->ordinal = -1;
+          if (oith);
+            imp->orig_address = thunk_data_u1_function (oith, j, cfg);
           if (cfg->on_self)
           {
-            imp->address = thunk_data_u1_function (ith, j, cfg);
+            imp->address = impaddress;
           }
-          if (thunk_data_u1_function (oith, j, cfg) & (1 << (sizeof (DWORD) * 8 - 1)))
+          if (oith && imp->orig_address & (1 << (sizeof (DWORD) * 8 - 1)))
           {
-            imp->ordinal = thunk_data_u1_function (oith, j, cfg) & ~(1 << (sizeof (DWORD) * 8 - 1));
+            imp->ordinal = imp->orig_address & ~(1 << (sizeof (DWORD) * 8 - 1));
           }
-          else
+          else if (oith)
           {
-            imp->ordinal = -1;
-            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, thunk_data_u1_function (oith, j, cfg), NULL);
+            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, imp->orig_address, NULL);
             if (byname != NULL)
               imp->name = strdup ((char *) byname->Name);
           }
@@ -350,6 +352,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           idd[i].TimeDateStamp; i++)
       {
         struct DepTreeElement *dll;
+        uint64_t impaddress;
         dll = ProcessDep (cfg, soffs, soffs_len, idd[i].DllNameRVA, root, self, 0);
         if (dll == NULL)
           continue;
@@ -363,22 +366,24 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           ith = (void *) idd[i].ImportAddressTableRVA;
           oith = (void *) idd[i].ImportNameTableRVA;
         }
-        for (j = 0; thunk_data_u1_function (ith, j, cfg) != 0; j++)
+        for (j = 0; (impaddress = thunk_data_u1_function (ith, j, cfg)) != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
-          imp->orig_address = thunk_data_u1_function (oith, j, cfg);
+          imp->ordinal = -1;
+          if (oith)
+            imp->orig_address = thunk_data_u1_function (oith, j, cfg);
           if (cfg->on_self)
           {
-            imp->address = thunk_data_u1_function (ith, j, cfg);
+            imp->address = impaddress;
           }
-          if (thunk_data_u1_function (oith, j, cfg) & (1 << (sizeof (DWORD) * 8 - 1)))
+          if (oith && imp->orig_address & (1 << (sizeof (DWORD) * 8 - 1)))
           {
-            imp->ordinal = thunk_data_u1_function (oith, j, cfg) & ~(1 << (sizeof (DWORD) * 8 - 1));
+            imp->ordinal = imp->orig_address & ~(1 << (sizeof (DWORD) * 8 - 1));
           }
-          else
+          else if (oith)
           {
-            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, thunk_data_u1_function (oith, j, cfg), NULL);
+            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, imp->orig_address, NULL);
             if (byname != NULL)
               imp->name = strdup ((char *) byname->Name);
           }
