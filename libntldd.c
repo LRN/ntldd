@@ -58,7 +58,8 @@ void *MapPointer (soff_entry *soffs, int soffs_len, DWORD in_ptr, int *section)
   return NULL;
 }
 
-/*int FindSectionID (IMAGE_OPTIONAL_HEADER *oh, DWORD address, DWORD size)
+/*
+int FindSectionID (IMAGE_OPTIONAL_HEADER *oh, DWORD address, DWORD size)
 {
   int i;
   for (i = 0; i < oh->NumberOfRvaAndSizes; i++)
@@ -68,7 +69,8 @@ void *MapPointer (soff_entry *soffs, int soffs_len, DWORD in_ptr, int *section)
       return i;
   }
   return -1;
-}*/
+}
+*/
 
 int FindSectionByRawData (LOADED_IMAGE *img, DWORD address)
 {
@@ -185,10 +187,12 @@ struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int 
 }
 
 
-/*struct ExportTableItem *FindExportForward (struct DepTreeElement *self, char *dllname, char *export_name, DWORD export_ordinal)
+/*
+struct ExportTableItem *FindExportForward (struct DepTreeElement *self, char *dllname, char *export_name, DWORD export_ordinal)
 {
   return NULL;
-}*/
+}
+*/
 
 int ClearDepStatus (struct DepTreeElement *self, uint64_t flags)
 {
