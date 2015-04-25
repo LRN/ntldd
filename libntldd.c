@@ -718,6 +718,10 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
 */
     }
   }
+  /* By keeping items in the stack we turn it into a list of all
+   * processed modules, this should be more effective at preventing
+   * us from processing modules multiple times
+   */
   /*PopStack (stack, stack_len, stack_size, name);*/
   return 0;
 }
