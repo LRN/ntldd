@@ -5,7 +5,7 @@
 #include <windows.h>
 
 #define NTLDD_VERSION_MAJOR 0
-#define NTLDD_VERSION_MINOR 1
+#define NTLDD_VERSION_MINOR 2
 
 struct DepTreeElement;
 
