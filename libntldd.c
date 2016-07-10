@@ -25,7 +25,7 @@ MSDN Magazine articles
 
 #include <windows.h>
 
-#include <Imagehlp.h>
+#include <imagehlp.h>
 
 #include <winnt.h>
 
