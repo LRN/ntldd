@@ -321,7 +321,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
           imp->ordinal = -1;
-          if (oith);
+          if (oith)
             imp->orig_address = thunk_data_u1_function (oith, j, cfg);
           if (cfg->on_self)
           {
